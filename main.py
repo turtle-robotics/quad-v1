@@ -3,9 +3,10 @@ import struct
 from threading import Thread
 from time import sleep, time
 
-from numpy import array, linspace
+from numpy import array
 
 import quad
+
 
 UDP_PORT = 5005
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -23,7 +24,9 @@ def udp_server():
 
 
 udp_thread = Thread(target=udp_server)
+udp_thread.daemon = True
 udp_thread.start()
+
 while True:
     t = time()
     positions = quad.walk_positions(v, t)

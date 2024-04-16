@@ -2,22 +2,39 @@ import json
 
 import board
 from adafruit_pca9685 import PCA9685
+from adafruit_bno08x import BNO_REPORT_ROTATION_VECTOR
+from adafruit_bno08x.i2c import BNO08X_I2C
 from busio import I2C
-from numpy import arccos, arctan2, array, ndarray, sqrt, tile, transpose, isclose
+from numpy import (arccos, arctan2, array, isclose, ndarray, sqrt, tile,
+                   transpose)
 from numpy.linalg import norm
 from scipy.interpolate import interp1d
+from scipy.spatial.transform import Rotation as R
 
 from Servo import Servo
 
-i2c = I2C(board.SCL, board.SDA)
-pwmhat = PCA9685(i2c)
-pwmhat.frequency = 50
+pwmhat = None
+imu = None
+try:
+    i2c = I2C(board.SCL, board.SDA)
+    pwmhat = PCA9685(i2c)
+    pwmhat.frequency = 50
+    imu = BNO08X_I2C(i2c)
+    imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+    orientation = R.from_quat(imu.quaternion)
+except:
+    pass
+
 
 l_shoulder = 29.5e-3
 l_upper = 70.123e-3
 l_lower = 61.97e-3
 r_foot = 4.9e-3
 h_rest = 0.8*sqrt(l_upper**2+l_lower**2)  # arbitrary
+
+T = 1.0  # Step period
+rest_pos = array([0.0, l_shoulder, h_rest])
+h_step = h_rest*0.5
 
 legs = {}
 
@@ -43,13 +60,8 @@ def pos_to_angles(pos: ndarray):
     return array([alpha, beta, gamma]).T
 
 
-T = 1.0  # Step period
-rest_pos = array([0.0, l_shoulder, h_rest])
-h_step = h_rest*0.5
-
-
 # Returns positions of the feet along the walking trajectory
-def walk_positions(v: ndarray, t: ndarray):
+def walk_positions(v: ndarray, t: ndarray, orientation=Rotation()):
     d = norm(v)*T  # Travel distance
     if isclose(d, 0.0):
         if type(t) == ndarray:
