@@ -19,10 +19,16 @@ class Servo:
                                    fill_value=(pwm_vals[argmin(ang_vals)], pwm_vals[argmax(ang_vals)]))
 
     def setpos(self, position: float):
-        if isnan(position):
+        if isnan(position) or self.port == -1:
             return
         duty_cycle = int(self.interp_fun(position))
         if self.pwmhat:
             self.pwmhat.channels[self.port].duty_cycle = duty_cycle
         else:
             print(f"Servo {self.port} set to {duty_cycle}")
+
+    def stop(self):
+        if self.pwmhat:
+            self.pwmhat.channels[self.port].duty_cycle = 0
+        else:
+            print(f"Servo {self.port} stopped")

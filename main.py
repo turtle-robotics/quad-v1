@@ -1,3 +1,4 @@
+import atexit
 import socket
 import struct
 from threading import Thread
@@ -19,17 +20,21 @@ def udp_server():
     global v
     while True:
         message, address = server_socket.recvfrom(1024)
-        v = struct.unpack('ff', message)
-        v = array(v)*0.01
+        temp = struct.unpack('ff', message)
+        v = array(temp).round(23)*0.001
 
 
 udp_thread = Thread(target=udp_server)
 udp_thread.daemon = True
 udp_thread.start()
 
+atexit.register(quad.stop)
+
+print("QUAD Started")
+
 while True:
     t = time()
     positions = quad.walk_positions(v, t)
     servo_angles = quad.pos_to_angles(positions)
     quad.set_servos(servo_angles)
-    sleep(0.05)
+    sleep(0.005)
