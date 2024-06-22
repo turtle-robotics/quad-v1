@@ -1,17 +1,14 @@
 import atexit
 from time import time
+
 from matplotlib import pyplot
 from matplotlib.widgets import Button, Slider
 from numpy import array, cos, pi, sin
+from quad import Quad
 
-from quad import l_lower as ll
-from quad import l_shoulder as ls
-from quad import l_upper as lu
-from quad import pos_to_angles
-from quad import r_foot as rf
-from quad import w_chassis as wc
-from quad import l_chassis as lc
-from quad import walk_positions
+quad = Quad("configs/v1_config.json")
+
+lc, ll, ls, lu, rf, wc = quad.l_chassis, quad.l_lower, quad.l_shoulder, quad.l_upper, quad.r_foot, quad.w_chassis
 
 leg_offsets = array([
     # LF, RF, LB, RB
@@ -30,8 +27,8 @@ inversion = array([
 
 
 def update(v, t):
-    p = walk_positions(v, t)
-    [alpha, beta, gamma] = pos_to_angles(p).T
+    p = quad.walk_positions(v, t)
+    [alpha, beta, gamma] = quad.pos_to_angles(p).T
     s = array([0*alpha, ls*cos(alpha), ls*sin(alpha)])
     u = array([lu*cos(beta), lu*sin(beta)*cos(alpha+pi/2),
                lu*sin(beta)*sin(alpha+pi/2)])

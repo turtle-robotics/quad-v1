@@ -6,12 +6,13 @@ from time import sleep, time
 
 from numpy import array
 
-import quad
+from quad import Quad
 
 
 UDP_PORT = 5005
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_socket.bind(('', UDP_PORT))
+quad = Quad("config.json")
 
 v = array([0, 0])
 

@@ -13,106 +13,106 @@ from scipy.spatial.transform import Rotation as R
 
 from Servo import Servo
 
-pwmhat = None
-imu = None
-try:
-    i2c = I2C(board.SCL, board.SDA)
-    pwmhat = PCA9685(i2c)
-    pwmhat.frequency = 50
-    imu = BNO08X_I2C(i2c)
-    imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
-    orientation = R.from_quat(imu.quaternion)
-except:
-    pass
 
+class Quad:
+    pwmhat = None
+    imu = None
 
-l_chassis = 0
-w_chassis = 0
-l_shoulder = 0  # Position relative to the shoulder pivot
-l_upper = 0
-l_lower = 0
-r_foot = 0
-legs = {}
+    l_chassis = 0
+    w_chassis = 0
+    l_shoulder = 0
+    l_upper = 0
+    l_lower = 0
+    r_foot = 0
+    legs = {}
+    h_rest = 0
+    rest_pos = 0
+    h_step = 0
+    T = 1  # Step period
 
-with open("config.json") as f:
-    config = json.load(f)
-    l_chassis = config["l_chassis"]
-    w_chassis = config["w_chassis"]
-    l_shoulder = config["l_shoulder"]
-    l_upper = config["l_upper"]
-    l_lower = config["l_lower"]
-    r_foot = config["r_foot"]
-    servo_dict = config["servos"]
-    for name, options in servo_dict.items():
-        if name[:2] not in legs:
-            legs[name[:2]] = {}
-        legs[name[:2]][name[2:3]] = Servo(
-            pwmhat, options["port"], options["pwm_vals"], options["ang_vals"])
+    orientation = R.identity()
 
-h_rest = sqrt(l_upper**2+l_lower**2)  # arbitrary
+    def __init__(self, configfile: str):
+        try:
+            i2c = I2C(board.SCL, board.SDA)
+            self.pwmhat = PCA9685(i2c)
+            self.pwmhat.frequency = 50
+            self.imu = BNO08X_I2C(i2c)
+            self.imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+        except:
+            pass
 
-T = 1.0  # Step period
-rest_pos = array([0, l_shoulder, h_rest])
-h_step = h_rest*0.5
+        with open(configfile) as f:
+            config = json.load(f)
+            self.l_chassis = config["l_chassis"]
+            self.w_chassis = config["w_chassis"]
+            self.l_shoulder = config["l_shoulder"]
+            self.l_upper = config["l_upper"]
+            self.l_lower = config["l_lower"]
+            self.r_foot = config["r_foot"]
+            for name, options in config["servos"].items():
+                if name[:2] not in self.legs:
+                    self.legs[name[:2]] = {}
+                self.legs[name[:2]][name[2:3]] = Servo(
+                    self.pwmhat, options["port"], options["pwm_vals"], options["ang_vals"])
+            self.h_rest = sqrt(self.l_upper**2+self.l_lower**2)
+            self.rest_pos = array([0, self.l_shoulder, self.h_rest])
+            self.h_step = self.h_rest*0.5
 
+    def pos_to_angles(self, pos: ndarray):
+        x, y, z = transpose(pos)
+        z -= self.r_foot
+        alpha = arctan2(z, y)-arccos(self.l_shoulder/sqrt(z**2+y**2))
+        z = sqrt(z**2+y**2-self.l_shoulder**2)
+        beta = arctan2(z, x)-arccos((self.l_upper**2+x**2+z**2-self.l_lower**2) /
+                                    (2*self.l_upper*sqrt(x**2+z**2)))
+        gamma = arccos((self.l_upper**2+self.l_lower**2-x**2-z**2) /
+                       (2*self.l_upper*self.l_lower))
+        return array([alpha, beta, gamma]).T
 
-def pos_to_angles(pos: ndarray):
-    x, y, z = transpose(pos)
-    z -= r_foot
-    alpha = arctan2(z, y)-arccos(l_shoulder/sqrt(z**2+y**2))
-    z = sqrt(z**2+y**2-l_shoulder**2)
-    beta = arctan2(z, x)-arccos((l_upper**2+x**2+z**2-l_lower**2) /
-                                (2*l_upper*sqrt(x**2+z**2)))
-    gamma = arccos((l_upper**2+l_lower**2-x**2-z**2) /
-                   (2*l_upper*l_lower))
-    return array([alpha, beta, gamma]).T
+    # Returns positions of the feet along the walking trajectory
 
+    def walk_positions(self, v: ndarray, t: ndarray):
+        d = norm(v)  # Travel distance
+        if isclose(d, 0.0):
+            if type(t) == ndarray:
+                return tile(self.rest_pos, (t.size, 4, 1))
+            return tile(self.rest_pos, (4, 1))
+        dx, dy = v*self.T  # Travel distance in x and y
 
-# Returns positions of the feet along the walking trajectory
-# , orientation: Rotation, target_orientation: Rotation):
-def walk_positions(v: ndarray, t: ndarray):
-    d = norm(v)  # Travel distance
-    if isclose(d, 0.0):
-        if type(t) == ndarray:
-            return tile(rest_pos, (t.size, 4, 1))
-        return tile(rest_pos, (4, 1))
-    dx, dy = v*T  # Travel distance in x and y
+        # points on step trajectory
+        p1 = self.rest_pos
+        p2 = array([0.0, 0.0, -self.h_step])+self.rest_pos
+        p3 = array([-dx, dy, 0.0])+self.rest_pos
 
-    # points on step trajectory
-    p1 = rest_pos
-    p2 = array([0.0, 0.0, -h_step])+rest_pos
-    p3 = array([-dx, dy, 0.0])+rest_pos
+        # interpolation function
+        p = interp1d([0.0, self.T/4, self.T/2, self.T],
+                     [p1, p2, p3, p1], axis=0)
 
-    # interpolation function
-    p = interp1d([0.0, T/4, T/2, T], [p1, p2, p3, p1], axis=0)
+        time = array([t, (t+self.T/2), (t+self.T/2), t]) % self.T
 
-    time = array([t, (t+T/2), (t+T/2), t]) % T
+        # LF, RF, LB, RB
+        return p(time)
 
-    # LF, RF, LB, RB
-    return p(time)
+    def set_servos(self, angles):
+        legmap = ['LF', 'RF', 'LB', 'RB']
+        servomap = "SUL"
+        for leg_name, servo_angles in zip(legmap, angles):
+            for servo_name, angle in zip(servomap, servo_angles):
+                try:
+                    self.legs[leg_name][servo_name].setpos(angle)
+                except:
+                    pass
 
+    def stop(self):
+        legmap = ['LF', 'RF', 'LB', 'RB']
+        servomap = "SUL"
+        for leg_name in legmap:
+            for servo_name in servomap:
+                try:
+                    self.legs[leg_name][servo_name].stop()
+                except:
+                    pass
 
-def set_servos(angles):
-    legmap = ['LF', 'RF', 'LB', 'RB']
-    servomap = "SUL"
-    for leg_name, servo_angles in zip(legmap, angles):
-        for servo_name, angle in zip(servomap, servo_angles):
-            try:
-                legs[leg_name][servo_name].setpos(angle)
-            except:
-                pass
-
-
-def stop():
-    legmap = ['LF', 'RF', 'LB', 'RB']
-    servomap = "SUL"
-    for leg_name in legmap:
-        for servo_name in servomap:
-            try:
-                legs[leg_name][servo_name].stop()
-            except:
-                pass
-
-
-def rest_state_angles():
-    return array([[0]*4, [pi/4]*4, [pi/2]*4]).T
+    def rest_state_angles(self):
+        return array([[0]*4, [pi/4]*4, [pi/2]*4]).T
