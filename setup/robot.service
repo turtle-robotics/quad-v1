@@ -1,0 +1,8 @@
+[Unit]
+Description=Robot Runner
+
+[Service]
+ExecStart=/bin/python /home/$USER/main.py
+
+[Install]
+WantedBy=multi-user.target

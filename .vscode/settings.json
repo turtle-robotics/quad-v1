@@ -1,0 +1,11 @@
+{
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "bash",
+            "args": [
+                "--init-file",
+                "setup/setup.sh"
+            ]
+        }
+    },
+}
