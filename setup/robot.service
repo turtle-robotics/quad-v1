@@ -2,7 +2,7 @@
 Description=Robot Runner
 
 [Service]
-ExecStart=/bin/python /home/$USER/main.py
+ExecStart=/bin/python /home/$USER/quad/main.py
 
 [Install]
 WantedBy=multi-user.target

@@ -1,6 +1,8 @@
 numpy
 scipy
+pandas
 adafruit-circuitpython-pca9685
 adafruit-circuitpython-bno08x
+adafruit-circuitpython-ads7830
 picamera2
 opencv-python

@@ -12,7 +12,7 @@ from quad import Quad
 UDP_PORT = 5005
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_socket.bind(('', UDP_PORT))
-quad = Quad("config.json")
+quad = Quad("configs.mini_v1_config")
 
 v = array([0, 0])
 
@@ -29,13 +29,17 @@ udp_thread = Thread(target=udp_server)
 udp_thread.daemon = True
 udp_thread.start()
 
-atexit.register(quad.stop)
+# atexit.register(quad.stop)
 
 print("QUAD Started")
 
-while True:
-    t = time()
-    positions = quad.walk_positions(v, t)
-    servo_angles = quad.pos_to_angles(positions)
-    quad.set_servos(servo_angles)
-    sleep(0.005)
+# positions = quad.walk_positions(v, 0)
+# servo_angles = quad.pos_to_angles(positions)
+quad.set_servos(quad.t_pose_angles())
+
+# while True:
+#     t = time()
+#     positions = quad.walk_positions(v, t)
+#     servo_angles = quad.pos_to_angles(positions)
+#     quad.set_servos(servo_angles)
+#     sleep(0.005)

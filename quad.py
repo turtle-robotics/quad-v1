@@ -10,6 +10,7 @@ from numpy import (arccos, arctan2, array, isclose, ndarray, pi, sqrt, tile,
 from numpy.linalg import norm
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
+from importlib import import_module
 
 from Servo import Servo
 
@@ -17,6 +18,7 @@ from Servo import Servo
 class Quad:
     pwmhat = None
     imu = None
+    config = {}
 
     l_chassis = 0
     w_chassis = 0
@@ -42,22 +44,23 @@ class Quad:
         except:
             pass
 
-        with open(configfile) as f:
-            config = json.load(f)
-            self.l_chassis = config["l_chassis"]
-            self.w_chassis = config["w_chassis"]
-            self.l_shoulder = config["l_shoulder"]
-            self.l_upper = config["l_upper"]
-            self.l_lower = config["l_lower"]
-            self.r_foot = config["r_foot"]
-            for name, options in config["servos"].items():
-                if name[:2] not in self.legs:
-                    self.legs[name[:2]] = {}
-                self.legs[name[:2]][name[2:3]] = Servo(
-                    self.pwmhat, options["port"], options["pwm_vals"], options["ang_vals"])
-            self.h_rest = sqrt(self.l_upper**2+self.l_lower**2)
-            self.rest_pos = array([0, self.l_shoulder, self.h_rest])
-            self.h_step = self.h_rest*0.5
+        self.config = import_module(configfile).config
+        config = self.config
+
+        self.l_chassis = config["l_chassis"]
+        self.w_chassis = config["w_chassis"]
+        self.l_shoulder = config["l_shoulder"]
+        self.l_upper = config["l_upper"]
+        self.l_lower = config["l_lower"]
+        self.r_foot = config["r_foot"]
+        for name, options in config["servos"].items():
+            if name[:2] not in self.legs:
+                self.legs[name[:2]] = {}
+            self.legs[name[:2]][name[2:3]] = Servo(
+                self.pwmhat, options["port"], options["pwm_vals"], options["ang_vals"])
+        self.h_rest = sqrt(self.l_upper**2+self.l_lower**2)
+        self.rest_pos = array([0, self.l_shoulder, self.h_rest])
+        self.h_step = self.h_rest*0.5
 
     def pos_to_angles(self, pos: ndarray):
         x, y, z = transpose(pos)
@@ -116,3 +119,6 @@ class Quad:
 
     def rest_state_angles(self):
         return array([[0]*4, [pi/4]*4, [pi/2]*4]).T
+
+    def t_pose_angles(self):
+        return array([[0]*4, [0]*4, [pi/2]*4]).T
