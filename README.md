@@ -10,6 +10,10 @@ This project runs in a python virtual environment to facilitate installing pytho
 pip install --upgrade -r requirements.txt
 ```
 
+## Resources
+
+Find the operator console for teleoperation from a gamepad in the operator-console branch.  
+Find the first revision of the code written in C++ in the cpp branch.
 
 ## Team Members
 - **[Ian Lansdowne](https://www.linkedin.com/in/idlansdowne/)**
